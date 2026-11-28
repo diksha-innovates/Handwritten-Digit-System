@@ -26,6 +26,7 @@ tests/                   pytest unit tests for data and model
 notebooks/               Original exploratory Colab notebook
 saved_models/            Trained model checkpoints (git-ignored)
 artifacts/               Generated plots (git-ignored)
+gui/                     Tkinter app: draw a digit and classify it live
 ```
 
 ## Setup
@@ -40,6 +41,9 @@ pip install -r requirements.txt
 
 > **macOS note:** if MNIST download fails with an SSL certificate error, point
 > Python at certifi's CA bundle: `export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")`.
+
+> **Linux note:** the drawing GUI uses Tkinter, which ships with Python on macOS/Windows
+> but is a separate OS package on most Linux distros, e.g. `sudo apt install python3-tk`.
 
 ## Usage
 
@@ -68,6 +72,13 @@ Run the test suite:
 
 ```bash
 pytest tests/
+```
+
+Draw a digit with the mouse and see live predictions (the GUI the original
+notebook proposed as future work, now possible locally):
+
+```bash
+python -m gui.app
 ```
 
 All scripts accept `--help` for the full list of options (epochs, batch size,
