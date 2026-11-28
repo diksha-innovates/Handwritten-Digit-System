@@ -1,42 +1,116 @@
-# Handwritten-Digit-System
-The project aims to train a machine learning model to recognize individual digits. MNIST Dataset has been use to train the model using beginner-friendly libraries like TensorFlow.
+# Handwritten Digit Recognizer
 
-Forfurther development in this project, it will be proposed to have a GUI system, which will ensure interactive environment between the user and the developer. The GUI maybe anything from a canvas or uploading images of single digits or even scanning image from local device using the webcam.
+A convolutional neural network that classifies handwritten digits (0-9) from the MNIST
+dataset, built with TensorFlow/Keras. The project started as a single Colab notebook and
+has been refactored into a modular, locally runnable Python package with tests.
 
-**Due to lack of support of GUI systems and files on Google Colab they have not been developed in this project.
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/diksha-innovates/Handwritten-Digit-System/blob/main/notebooks/Handwritten_Digit_System.ipynb)
 
-# Libraries Used
-NumPy: Supports numerical operations on arrays.
+## Project structure
 
-Tensorflow and Keras: providing tools for building and training the neural networks.
+```
+digit_recognizer/       Core library
+  config.py              Hyperparameters and paths (single source of truth)
+  data.py                MNIST loading + preprocessing + train/val/test split
+  model.py                CNN architecture
+  train.py               Training loop with callbacks
+  evaluate.py             Metrics, training curves, confusion matrix
+  predict.py              Single-image inference
 
-Keras Layers: Provide different types of layers for constructing the neural network.
+scripts/                 CLI entry points
+  train.py                python -m scripts.train
+  evaluate.py              python -m scripts.evaluate
+  predict.py               python -m scripts.predict
 
-Sequential Model: Allows for a straightforward, layer-by-layer model construction.
+tests/                   pytest unit tests for data and model
+notebooks/               Original exploratory Colab notebook
+saved_models/            Trained model checkpoints (git-ignored)
+artifacts/               Generated plots (git-ignored)
+```
 
-Utility Functions: Help preprocess and transform data for training.
+## Setup
 
-Matplotlib.Pyplot: Importing the Matplotlib library for plotting.
+Requires Python 3.9+.
 
-# Model Architecture
-Input Shape: Each image is 28x28 pixels in grayscale.
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
 
-Architecture: Alternates between convolutional and max pooling layers for feature extraction, followed by flattening and dense layers for classification.
+> **macOS note:** if MNIST download fails with an SSL certificate error, point
+> Python at certifi's CA bundle: `export SSL_CERT_FILE=$(python -c "import certifi; print(certifi.where())")`.
 
-Output: Predicts the likelihood of each digit (0-9) for classification.
+## Usage
 
+Train a model (trains for up to 20 epochs with early stopping, saves the best
+checkpoint to `saved_models/digit_model.keras`, and writes a loss/accuracy plot
+to `artifacts/training_history.png`):
 
-*Input Layer (Conv2D):* Uses 32 filters of size 3x3 with ReLU activation and processes the input images (28x28 grayscale). O/P: Extracts 32 feature maps.
+```bash
+python -m scripts.train
+```
 
-*MaxPooling2D Layer:* Reduces spatial dimensions, enhancing computational efficiency and robustness and performs max pooling with a pool size of 2x2.
+Evaluate a saved model on the held-out test set (prints accuracy/loss plus a
+per-digit classification report, and saves a confusion matrix to `artifacts/`):
 
-*Convolutional Layer (Conv2D):* Further extracts features from the data and utilizes 64 filters of size 3x3 with ReLU activation. O/P: Generates 64 feature maps.
+```bash
+python -m scripts.evaluate --model-path saved_models/digit_model.keras
+```
 
-*MaxPooling2D Layer:* Continues to downsample the feature maps and performs max pooling with a pool size of 2x2.
+Predict a single digit from an image file:
 
-*Flatten Layer:* Converts the 2D feature maps into a 1D vector. O/P: Prepares the data for input into the fully connected layers.
+```bash
+python -m scripts.predict --image path/to/digit.png
+```
 
-*Dense Layer (Hidden):* Consists of 64 neurons with ReLU activation and Learns complex patterns in the data.
+Run the test suite:
 
-*Dense Layer (Output):* It has 10 neurons (one for each digit) with softmax activation, providing probabilities for each class and produces final predictions.
+```bash
+pytest tests/
+```
 
+All scripts accept `--help` for the full list of options (epochs, batch size,
+learning rate, validation split, etc.) — defaults live in `digit_recognizer/config.py`.
+
+## Model architecture
+
+Two convolutional blocks (Conv2D → BatchNorm → Conv2D → BatchNorm → MaxPool →
+Dropout, then Conv2D → BatchNorm → MaxPool → Dropout), followed by a dense
+classification head (Dense(128) → BatchNorm → Dropout(0.5) → Dense(10, softmax)).
+
+| Aspect | Original notebook | This version |
+|---|---|---|
+| Regularization | None | BatchNorm + Dropout throughout |
+| Labels | One-hot (`to_categorical`) + `categorical_crossentropy` | Integer labels + `sparse_categorical_crossentropy` |
+| Validation data | Test set (leaks into model selection) | Held-out split of the *training* set only |
+| Training schedule | Fixed 10 epochs | Up to 20 epochs with early stopping, LR reduction on plateau, and best-checkpoint saving |
+| Test set | Used during training | Only touched once, for final reporting |
+
+## Results
+
+Both models were trained locally on CPU (Apple Silicon, TensorFlow 2.21) on the same
+MNIST data, and evaluated once on the 10,000-image test set.
+
+| Metric | Original notebook model | This version |
+|---|---|---|
+| Test accuracy | 98.95% | **99.45%** |
+| Test loss | 0.0341 | **0.0160** |
+
+The improved model also stopped training automatically via early stopping once
+validation accuracy plateaued (epoch 20/20 in this run, with `ReduceLROnPlateau`
+having already decayed the learning rate twice), rather than running a fixed
+10 epochs regardless of whether it was still improving.
+
+Per-digit precision/recall on the test set are all 0.99-1.00. See
+`artifacts/training_history.png` and `artifacts/confusion_matrix.png` for the
+training curves and confusion matrix, generated by `scripts.train` / `scripts.evaluate`.
+
+## Libraries used
+
+- **TensorFlow / Keras** — model definition, training, and the MNIST dataset loader.
+- **NumPy** — array preprocessing.
+- **Matplotlib** — training curves and confusion matrix plots.
+- **scikit-learn** — classification report and confusion matrix.
+- **Pillow** — loading arbitrary images for single-digit prediction.
+- **pytest** — unit tests.

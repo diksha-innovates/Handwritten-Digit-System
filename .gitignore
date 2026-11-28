@@ -2,3 +2,9 @@
 __pycache__/
 *.pyc
 .pytest_cache/
+
+saved_models/*.keras
+saved_models/*.h5
+artifacts/*.png
+
+.DS_Store
